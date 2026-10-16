@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Запали Кристал чисел</title>
+<!-- Шрифти: піксельний Tiny5 (повна кирилиця, зокрема ґ є і ї) і читабельний Nunito.
+     Якщо інтернету немає — гра працює на системних шрифтах. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tiny5&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+/* =========================================================
+   БАЗА І ЗМІННІ
+   ========================================================= */
+:root{
+  --pixel:'Tiny5','Courier New',Consolas,monospace;
+  --sans:'Nunito','Segoe UI',Roboto,Arial,sans-serif;
+  --bg:#1b1331;
+  --bg-out:#120c22;
+  --gold:#f7c934;
+  --emerald:#2ecc71;
+  --wood:#a47a46;
+  --wood-dd:#3a240f;
+  --noise:none;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg-out)}
+body{font-family:var(--sans);color:#fff;font-synthesis:none;-webkit-user-select:none;user-select:none}
+
+/* Сцена 1280×720 (16:9), масштабується під вікно без скролу */
+#stage{
+  position:absolute;left:50%;top:50%;width:1280px;height:720px;margin:-360px 0 0 -640px;
+  transform:scale(var(--s,1));transform-origin:50% 50%;overflow:hidden;
+  background-color:var(--bg);background-image:var(--noise);background-size:256px 256px;
+}
+canvas.pix{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+.view{position:absolute;inset:0}
+.view.enter{animation:fadeIn .35s ease-out}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pop{0%{transform:scale(.8);opacity:0}70%{transform:scale(1.04);opacity:1}100%{transform:scale(1);opacity:1}}
+.pop{animation:pop .35s ease-out both}
+
+/* =========================================================
+   MINECRAFT-ЕЛЕМЕНТИ: кнопки, дерево, інвентар
+   ========================================================= */
+.mc-btn{
+  font-family:var(--pixel);font-size:32px;font-weight:400;color:#fff;text-shadow:3px 3px 0 #2a2a2a;
+  height:64px;padding:0 28px;min-width:170px;border:3px solid #0d0d0d;
+  background-color:#737373;background-image:var(--noise);background-size:128px 128px;
+  box-shadow:inset 3px 3px 0 rgba(255,255,255,.45),inset -3px -4px 0 rgba(0,0,0,.38);
+  cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  outline:none;transition:filter .12s,transform .08s;white-space:nowrap;
+}
+.mc-btn:hover{filter:brightness(1.18)}
+.mc-btn:active{transform:translateY(2px)}
+.mc-btn.green{background-color:#3d8f2c}
+.mc-btn.gold{background-color:#c8941a}
+.mc-btn.on{box-shadow:inset -3px -3px 0 rgba(255,255,255,.35),inset 3px 4px 0 rgba(0,0,0,.4);filter:brightness(1.1)}
+.mc-btn:disabled{background-color:#5c5c5c;opacity:.4;cursor:default;pointer-events:none;filter:none}
+.mc-btn.big{height:84px;font-size:46px;min-width:320px}
+.mc-btn.small{height:56px;font-size:28px;min-width:0;padding:0 20px}
+
+.wood{
+  background-color:var(--wood);
+  background-image:var(--noise),repeating-linear-gradient(180deg,transparent 0 22px,rgba(60,35,10,.32) 22px 25px);
+  background-size:128px 128px,auto;
+  border:4px solid var(--wood-dd);
+  box-shadow:inset 3px 3px 0 rgba(255,226,170,.38),inset -3px -3px 0 rgba(40,20,5,.45);
+  color:#2b1806;
+}
+.inv{
+  background:#c6c6c6;border:3px solid #111;
+  box-shadow:inset 4px 4px 0 #fff,inset -4px -4px 0 #555;color:#1d1d1d;
+}
+
+/* =========================================================
+   ВЕРХ: смужка досвіду, табличка раунду, підказка
+   ========================================================= */
+#xp{position:absolute;top:14px;left:50%;width:560px;margin-left:-280px;height:22px;z-index:30}
+#xp .bar{position:absolute;inset:0;background:#1e1e1e;border:3px solid #000;box-shadow:inset 0 3px 0 #3a3a3a}
+#xp .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:#7fe022;box-shadow:inset 0 3px 0 #b9ff6a,inset 0 -3px 0 #4a9a0c;transition:width .6s ease-out}
+#xp .ticks{position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 59px,rgba(0,0,0,.55) 59px 62px)}
+#xp .lvl{position:absolute;left:50%;top:50%;transform:translate(-50%,-52%);font-family:var(--pixel);font-size:34px;color:#80ff20;
+  text-shadow:3px 0 0 #000,-3px 0 0 #000,0 3px 0 #000,0 -3px 0 #000,3px 3px 0 #000,-3px -3px 0 #000,3px -3px 0 #000,-3px 3px 0 #000}
+
+.round-sign{position:absolute;top:50px;left:50%;transform:translateX(-50%);padding:6px 34px 8px;text-align:center;min-width:420px;white-space:nowrap}
+.round-sign .t{font-family:var(--pixel);font-size:36px;line-height:1}
+.round-sign .en{font-family:var(--pixel);font-size:22px;color:#4e2f10;margin-top:3px;letter-spacing:1px}
+.round-sign .cnt{position:absolute;right:-76px;top:50%;transform:translateY(-50%);background:#2b1806;color:var(--gold);font-family:var(--pixel);font-size:22px;padding:2px 9px;border:3px solid #000}
+
+.hint{
+  position:absolute;left:50%;bottom:594px;transform:translateX(-50%) scale(.92);opacity:0;pointer-events:none;
+  transition:opacity .2s,transform .2s;width:max-content;max-width:1180px;padding:12px 28px;
+  font:800 28px/1.3 var(--sans);color:#3b2800;text-align:center;
+  background:#f6c843;border:3px solid #4a3300;
+  box-shadow:inset 4px 4px 0 #ffe9a0,inset -4px -4px 0 #b88a10,0 6px 0 rgba(0,0,0,.35);z-index:35;
+}
+.hint.show{opacity:1;transform:translateX(-50%) scale(1)}
+
+/* Тіло раунду: питання + візуал */
+.body{position:absolute;top:130px;left:40px;right:40px;bottom:88px;display:flex;flex-direction:column;gap:12px}
+.qpanel{padding:9px 22px;font-size:28px;font-weight:800;text-align:center;line-height:1.28;flex:none}
+.visual{flex:1;position:relative;min-height:0}
+.panel{position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:18px;z-index:10}
+
+/* Зелена табличка з відповіддю */
+.answer{
+  background:#14563a;border:3px solid #062616;
+  box-shadow:inset 4px 4px 0 #3ddc8a,inset -4px -4px 0 #0b3a24;
+  color:#fff;font:800 28px/1.28 var(--sans);padding:12px 22px;text-shadow:2px 2px 0 rgba(0,0,0,.4);
+}
+.answer b{color:#fff27a;font-family:var(--pixel);font-size:38px;font-weight:400}
+
+/* =========================================================
+   СКРИНЯ-ЗМІННА
+   ========================================================= */
+.chest-wrap{display:flex;flex-direction:column;align-items:center;--w:240px}
+.vsign{min-width:calc(var(--w) * .8);padding:5px 18px;font-family:var(--pixel);font-size:32px;text-align:center;white-space:nowrap;line-height:1.2}
+.vsign.unknown{color:#5a3a18}
+.vpost{width:16px;height:12px;background:#6b4520;border-left:3px solid var(--wood-dd);border-right:3px solid var(--wood-dd)}
+.chest{width:var(--w);position:relative}
+.chest .lid{height:calc(var(--w) * .12);margin:0 calc(var(--w) * .04);background:#5e3b1a;border:4px solid #241204;border-bottom:none;box-shadow:inset 0 5px 0 #8a5c2c,inset 0 -6px 0 #3f260f}
+.chest .mouth{height:calc(var(--w) * .34);background:#1a0d04;border-left:4px solid #241204;border-right:4px solid #241204;position:relative;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 10px 0 rgba(0,0,0,.55)}
+.chest .mouth.empty::after{content:'порожньо';font:800 22px var(--sans);color:#8d7b68}
+.chest .val{font-family:var(--pixel);font-size:calc(var(--w) * .4);line-height:1;color:#fff4c2;text-shadow:4px 4px 0 #000,0 0 18px rgba(255,214,110,.4);position:relative;z-index:2;display:inline-block}
+.chest .val.hidden{color:var(--gold)}
+.chest .front{
+  height:calc(var(--w) * .36);position:relative;
+  background-color:#a0672e;
+  background-image:var(--noise),repeating-linear-gradient(180deg,transparent 0 16px,rgba(70,38,10,.35) 16px 19px);
+  background-size:128px 128px,auto;
+  border:4px solid #241204;border-top-width:6px;
+  box-shadow:inset 6px 0 0 #b97c3d,inset -6px -5px 0 #6d4318;
+}
+.chest .front::before,.chest .front::after{content:'';position:absolute;top:0;bottom:0;width:calc(var(--w) * .05);background:#5c3a17}
+.chest .front::before{left:0}.chest .front::after{right:0}
+.chest .latch{position:absolute;top:-8px;left:50%;width:calc(var(--w) * .12);height:calc(var(--w) * .17);transform:translateX(-50%);background:#c9c9c9;border:3px solid #222;box-shadow:inset 3px 3px 0 #fff,inset -3px -3px 0 #7a7a7a;z-index:3}
+.chest .latch::after{content:'';position:absolute;left:50%;top:55%;width:4px;height:6px;margin-left:-2px;background:#333}
+
+/* Летючі елементи анімацій */
+#fx{position:absolute;inset:0;pointer-events:none;z-index:40}
+.fly{position:absolute;white-space:nowrap}
+.fly-val{font-family:var(--pixel);color:#fff4c2;text-shadow:4px 4px 0 #000}
+.fly-num{font-family:var(--pixel);font-size:64px;color:#fff4c2;text-shadow:4px 4px 0 #000}
+.fly-chip{font-family:var(--pixel);font-size:44px;color:#2b1a00;background:var(--gold);border:3px solid #4a3300;padding:2px 14px;box-shadow:inset 3px 3px 0 #ffe9a0,inset -3px -3px 0 #b88a10}
+.flash{position:absolute;transform:translate(-50%,-100%);font:800 28px var(--sans);color:#fff;background:#3a1f66;border:3px solid var(--gold);padding:8px 18px;white-space:nowrap;box-shadow:0 5px 0 rgba(0,0,0,.35)}
+.spark{position:absolute;width:10px;height:10px}
+
+/* =========================================================
+   БЛОКИ КОДУ У СТИЛІ MAKECODE
+   ========================================================= */
+.blk{
+  display:inline-flex;align-items:center;gap:8px;padding:7px 14px;min-height:48px;border-radius:8px;
+  background:var(--bc,#888);color:#fff;font:800 24px/1.1 var(--sans);white-space:nowrap;
+  border:2px solid rgba(0,0,0,.28);box-shadow:inset 0 2px 0 rgba(255,255,255,.22);position:relative;
+  transition:box-shadow .15s;
+}
+.c-var{--bc:#d94848}.c-player{--bc:#2f7dd3}.c-blocks{--bc:#4f9c2b}.c-loop{--bc:#1e7a38}.c-math{--bc:#8a80b0}
+.slot{background:#fff;color:#262626;border-radius:16px;padding:3px 12px;min-width:36px;text-align:center;display:inline-block}
+.dd{background:rgba(0,0,0,.2);border-radius:16px;padding:3px 12px;display:inline-flex;align-items:center;gap:8px}
+.var{background:#e85d5d;border:2px solid rgba(0,0,0,.28);border-radius:999px;padding:3px 14px;color:#fff;display:inline-block}
+.blk .blk{min-height:0;padding:4px 10px;border-radius:24px}
+.opch{font-family:var(--pixel);font-size:36px;padding:0 4px}
+.blk.hl{box-shadow:0 0 0 5px #ffe600,0 0 18px 6px rgba(255,230,0,.55);z-index:3}
+.blk.done::after{content:'✓';margin-left:4px;font-size:24px;color:#eaffdf;background:rgba(0,0,0,.22);border-radius:50%;width:30px;height:30px;display:inline-grid;place-items:center}
+.cb{display:inline-flex;flex-direction:column;align-items:flex-start}
+.cb>.blk{border-bottom-left-radius:0}
+.cb-mid{display:flex}
+.cb-spine{width:22px;background:var(--bc);border-left:2px solid rgba(0,0,0,.28)}
+.cb-kids{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:4px 0}
+.cb-foot{width:130px;height:18px;background:var(--bc);border-radius:0 0 8px 8px;border:2px solid rgba(0,0,0,.28);border-top:none}
+.blk.hat{border-top-left-radius:24px;border-top-right-radius:14px;padding-top:12px}
+.goldi{width:22px;height:22px;display:inline-block;background:#f5d33a;border:2px solid #6b4a05;box-shadow:inset 3px 3px 0 #fff3a0,inset -3px -3px 0 #b27c0c}
+.place .rows{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.place .row{display:flex;align-items:center;gap:8px}
+.pos{display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,.16);border-radius:20px;padding:3px 10px}
+
+/* =========================================================
+   СТАРТ
+   ========================================================= */
+.start{display:flex;flex-direction:column;align-items:center;padding-top:60px}
+.title-sign{padding:22px 60px 26px;text-align:center;margin-top:18px}
+.title-sign h1{margin:0;font-family:var(--pixel);font-weight:400;font-size:78px;line-height:1.05;color:#2b1806;text-shadow:3px 3px 0 rgba(255,226,170,.35)}
+.title-sign p{margin:10px 0 0;font:800 26px var(--sans);color:#4a2c0e}
+.start .go{margin-top:40px}
+.keys{position:absolute;bottom:22px;left:0;right:0;text-align:center;font:700 20px var(--sans);color:#a99bcc}
+.keys kbd{font-family:var(--pixel);background:#2d2248;border:2px solid #4b3d73;padding:1px 8px;color:#e7defc}
+.fs-btn{position:absolute;top:16px;right:16px}
+
+/* =========================================================
+   КАРТА
+   ========================================================= */
+.map-note{position:absolute;top:56px;left:50%;transform:translateX(-50%);padding:10px 26px;font:800 28px var(--sans);white-space:nowrap}
+.crystal-wrap{position:absolute;display:flex;flex-direction:column;align-items:center;transition:filter .7s ease-out}
+.socket{position:absolute;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;cursor:pointer}
+.socket .fire{height:78px;display:flex;align-items:flex-end;justify-content:center}
+.socket .slabel{margin-top:8px;padding:5px 18px 7px;text-align:center;white-space:nowrap;transition:filter .12s,transform .12s}
+.socket .sn{font-family:var(--pixel);font-size:30px;line-height:1.1}
+.socket .se{font-family:var(--pixel);font-size:21px;color:#4e2f10}
+.socket:hover .slabel{filter:brightness(1.15);transform:scale(1.05)}
+.socket.lit .slabel{border-color:#7a5200;box-shadow:inset 3px 3px 0 rgba(255,226,170,.38),inset -3px -3px 0 rgba(40,20,5,.45),0 0 0 3px var(--gold)}
+.map-final{position:absolute;right:24px;bottom:18px}
+
+/* =========================================================
+   РАУНД 1
+   ========================================================= */
+.r1{display:flex;flex-direction:column;align-items:center;height:100%}
+.desc{font:800 28px var(--sans);color:#efe4ff;margin-bottom:4px}
+.plates{display:flex;gap:26px;margin-top:16px}
+.plate-col{width:376px;display:flex;flex-direction:column;align-items:center}
+.plate{width:100%;height:64px;display:flex;align-items:center;gap:14px;padding:0 14px;font-family:var(--pixel);font-size:32px;transition:box-shadow .3s}
+.plate .letter{width:44px;height:44px;background:#3a240f;color:var(--gold);display:grid;place-items:center;font-size:34px;flex:none;border:3px solid #1e1206}
+.plate .pname{white-space:nowrap}
+.plate.ok{background-color:#3faa5c;border-color:#0b4a24;color:#062a12;box-shadow:inset 3px 3px 0 rgba(255,255,255,.35),inset -3px -3px 0 rgba(0,40,10,.4),0 0 0 4px #9dffbf,0 0 24px 6px rgba(46,204,113,.6)}
+.why{margin-top:8px;font:800 24px/1.25 var(--sans);color:#ffe2a8;text-align:center;opacity:0;transition:opacity .35s}
+.why.good{color:#a6ffc4}
+.why.show{opacity:1}
+
+/* =========================================================
+   РАУНД 2
+   ========================================================= */
+.r2-top{position:relative;height:150px;display:flex;align-items:center;justify-content:center}
+.item-card{background:#f4ead2;color:#2a1a08;border:3px solid #2b1a08;box-shadow:inset 4px 4px 0 #fffaf0,inset -4px -4px 0 #c7b088;font-family:var(--pixel);display:grid;place-items:center;white-space:nowrap}
+.item-card.big{min-width:220px;height:120px;padding:0 34px;font-size:72px}
+.item-card.small{height:62px;padding:0 16px;font-size:36px;min-width:76px}
+.r2-msg{position:absolute;left:calc(50% + 150px);top:50%;transform:translateY(-50%)}
+.r2-top .answer{max-width:1000px;text-align:center}
+.try{font-family:var(--pixel);font-size:34px;color:var(--gold);text-shadow:3px 3px 0 #000;white-space:nowrap}
+.shelves{position:absolute;left:0;right:0;bottom:28px;display:flex;gap:40px;justify-content:center}
+.shelf{width:540px;display:flex;flex-direction:column;align-items:stretch;border-radius:4px}
+.shelf.pick{cursor:pointer}
+.shelf.pick:hover .shelf-sign,.shelf.pick:hover .shelf-plank{filter:brightness(1.15)}
+.shelf-sign{padding:6px 14px 8px;text-align:center;margin:0 50px}
+.shelf-sign b{display:block;font-family:var(--pixel);font-size:34px;font-weight:400}
+.shelf-sign span{display:block;font:800 24px var(--sans);color:#3e2408}
+.shelf-items{height:88px;display:flex;align-items:flex-end;justify-content:center;gap:16px;padding:0 10px 2px}
+.shelf-plank{height:26px;position:relative}
+.shelf-plank::before,.shelf-plank::after{content:'';position:absolute;top:22px;width:26px;height:26px;background:#3a240f;clip-path:polygon(0 0,100% 0,0 100%)}
+.shelf-plank::before{left:30px}.shelf-plank::after{right:30px;clip-path:polygon(0 0,100% 0,100% 100%)}
+
+/* =========================================================
+   РАУНД 3
+   ========================================================= */
+.r3{display:flex;height:100%;gap:40px}
+.r3 .left{width:660px;display:flex;flex-direction:column;gap:18px;padding-top:6px}
+.r3 .code{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.r3 .right{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+
+/* =========================================================
+   РАУНД 4
+   ========================================================= */
+.r4{display:flex;height:100%;gap:30px}
+.r4 .left{width:640px;position:relative;display:flex;flex-direction:column;align-items:center}
+.r4 .setslot{height:44px;width:100%;display:flex;align-items:center;padding-left:20px}
+.r4 .chests{display:flex;gap:90px}
+.r4 .saycode{margin-top:4px}
+.r4 .right{flex:1;display:flex;flex-direction:column;align-items:center;gap:26px;padding-top:60px}
+.eq{display:flex;align-items:center;gap:14px;font-family:var(--pixel);font-size:66px}
+.eq .bx{min-width:96px;height:86px;padding:0 10px;display:grid;place-items:center;border:3px dashed rgba(255,255,255,.35);color:rgba(255,255,255,.35)}
+.eq .bx.f{border:3px solid var(--gold);background:rgba(0,0,0,.3);color:#fff4c2;text-shadow:4px 4px 0 #000}
+.eq .bx.res.f{border-color:var(--emerald);color:#b4ffcf}
+.eq .sym{color:#e7dcff}
+.chat{position:absolute;left:0;bottom:0;width:560px;display:flex;flex-direction:column;gap:2px;z-index:4}
+.chat-line{background:rgba(0,0,0,.6);color:#fff;font:400 30px/1.2 var(--pixel);padding:2px 14px;text-shadow:2px 2px 0 #3f3f3f}
+.chat-line.empty{color:rgba(255,255,255,.4)}
+.chat-line .who{color:#fff}
+
+/* =========================================================
+   РАУНД 5
+   ========================================================= */
+.r5{display:flex;height:100%;gap:24px;align-items:flex-start}
+.r5 .codecol{width:580px}
+.r5 .blk{font-size:22px;min-height:44px;padding:6px 12px}
+.r5 .blk .blk,.r5 .pos{font-size:22px}
+.r5 .gridcol{width:190px;display:flex;flex-direction:column;align-items:flex-end}
+.yrow{display:flex;align-items:center;gap:10px;height:50px}
+.ylab{font-family:var(--pixel);font-size:28px;color:#d9ccff;width:70px;text-align:right}
+.ycell{width:56px;height:50px;border:2px dashed rgba(255,255,255,.18);border-bottom:none;display:grid;place-items:center;position:relative}
+.yrow:first-child .ycell{border-top:2px dashed rgba(255,255,255,.18)}
+.ground{width:120px;height:18px;background:#7a4f2a;border-top:7px solid #4caa2c;margin-right:-32px;box-shadow:inset 0 -3px 0 #5b3a1d}
+.r5 .rightcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:12px}
+.counter{padding:6px 22px;font:800 28px var(--sans)}
+.counter b{font-family:var(--pixel);font-size:38px;font-weight:400}
+.visual>.ans{position:absolute;left:604px;right:0;bottom:0}
+.r5 .runall{margin-top:4px}
+
+/* =========================================================
+   «ЗАПАМ'ЯТАЙ» І ФІНАЛ
+   ========================================================= */
+.rem-stage{position:absolute;top:140px;bottom:96px;left:0;right:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.rcard{
+  width:960px;padding:26px 40px;background:#f6ecd0;color:#2a1d0a;border:4px solid #3a2a12;
+  box-shadow:inset 5px 5px 0 #fffaf0,inset -5px -5px 0 #cdb88c,0 8px 0 rgba(0,0,0,.25);
+  font:800 34px/1.35 var(--sans);position:relative;z-index:2;
+}
+.rcard p{margin:0}.rcard p+p{margin-top:14px}
+.rcard.drop{animation:drop .6s cubic-bezier(.3,.7,.4,1) both}
+@keyframes drop{0%{transform:translateY(-90px);opacity:0}70%{transform:translateY(6px);opacity:1}100%{transform:translateY(0)}}
+.shelf-big{width:1080px;height:30px;position:relative;margin-top:-2px}
+.shelf-big::before,.shelf-big::after{content:'';position:absolute;top:26px;width:34px;height:34px;background:#3a240f;clip-path:polygon(0 0,100% 0,0 100%)}
+.shelf-big::before{left:60px}.shelf-big::after{right:60px;clip-path:polygon(0 0,100% 0,100% 100%)}
+
+.final-top{position:absolute;top:50px;left:60px;right:40px;height:240px;display:flex;align-items:center;gap:50px}
+.final-top .crystal-wrap{position:relative}
+.final-title{font-family:var(--pixel);font-size:60px;line-height:1.1;color:var(--gold);text-shadow:4px 4px 0 #3a1f00}
+.final-fires{display:flex;gap:34px;margin-top:20px;align-items:flex-end}
+.final-fires .ff{display:flex;flex-direction:column;align-items:center}
+.final-shelf{position:absolute;top:298px;left:40px;right:40px}
+.final-shelf .label{display:inline-block;padding:4px 22px;font-family:var(--pixel);font-size:30px;margin-left:10px}
+.mini-cards{display:flex;gap:12px;margin-top:10px;align-items:flex-end;height:246px}
+.mini{flex:1;height:100%;background:#f6ecd0;color:#2a1d0a;border:3px solid #3a2a12;box-shadow:inset 4px 4px 0 #fffaf0,inset -4px -4px 0 #cdb88c;padding:10px 12px;cursor:pointer;overflow:hidden;transition:transform .12s}
+.mini:hover{transform:translateY(-4px)}
+.mini h4{margin:0 0 6px;font-family:var(--pixel);font-weight:400;font-size:25px;color:#6a3d00}
+.mini p{margin:0 0 6px;font:800 18px/1.3 var(--sans)}
+.final-btn{position:absolute;left:50%;bottom:14px;transform:translateX(-50%)}
+#zoom{position:absolute;inset:0;background:rgba(10,5,22,.78);display:none;place-items:center;z-index:60;cursor:pointer}
+#zoom.show{display:grid}
+
+/* Спливашка «Досягнення отримано!» */
+#toasts{position:absolute;top:52px;right:16px;z-index:50}
+.toast{display:flex;align-items:center;gap:16px;width:400px;padding:12px 18px;background:#212121;border:3px solid #000;
+  box-shadow:inset 3px 3px 0 #575757,inset -3px -3px 0 #101010;animation:toast 4.6s ease-in-out forwards}
+.toast .tt{font-family:var(--pixel);font-size:28px;color:#ffff55}
+.toast .ts{font-family:var(--pixel);font-size:28px;color:#fff;margin-top:2px}
+@keyframes toast{0%{transform:translateX(120%)}9%{transform:translateX(0)}88%{transform:translateX(0);opacity:1}100%{transform:translateX(120%);opacity:0}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="xp"><div class="bar"><div class="fill"></div><div class="ticks"></div></div><div class="lvl">0</div></div>
+  <div id="screen"></div>
+  <div id="fx"></div>
+  <div id="toasts"></div>
+  <div id="zoom"></div>
+</div>
+
+<script>
+/* =========================================================================
+   ДАНІ ГРИ — усі тексти, завдання, відповіді, підказки та програми тут.
+   Щоб змінити гру, достатньо відредагувати ці об'єкти.
+   ========================================================================= */
+
+// Кольори вогнів (по черзі для раундів 1–5): блакитний, золотий, білий, зелений, фіолетовий
+const FIRES = [
+  { o:'#1f7fd6', m:'#5fd8ff', i:'#e6fbff' },
+  { o:'#d9780f', m:'#ffcf33', i:'#fff6c2' },
+  { o:'#93a6cc', m:'#e8eeff', i:'#ffffff' },
+  { o:'#1f9a3d', m:'#4be36b', i:'#dcffd8' },
+  { o:'#6a2bc4', m:'#b06bff', i:'#f3e2ff' },
+];
+
+const TEXTS = {
+  startTitle: 'Запали Кристал чисел',
+  startSub: 'Урок про змінні · Minecraft MakeCode',
+  startBtn: 'Почати',
+  mapNote: 'Кристал не світиться багато років. Запали 5 вогнів! 👇',
+  finalBtnReady: '💎 До фіналу',
+  finalBtn: 'Завершити місію',
+  finalTitle: 'Місія виконана: Кристал ожив! 💎',
+  shelfTitle: 'Полиця знань',
+  again: 'Грати ще раз',
+  remember: "Запам'ятай!",
+  toMap: '🗺 На карту',
+  achievement: 'Досягнення отримано!',
+  btnBack: '◀ Назад', btnHint: '💡 Підказка', btnAnswer: 'Показати відповідь', btnNext: 'Далі ▶',
+};
+
+const ROUNDS = [
+  /* ---------- РАУНД 1 ---------- */
+  {
+    key: 'name', title: 'Підпиши скриню', en: 'variable', achievement: 'Майстер підписів',
+    instruction: 'Який підпис найкращий для цієї скрині? Скажи букву!',
+    okNote: 'Найкращий підпис!',
+    tasks: [
+      { desc: 'Тут зберігаємо вік користувача', value: 10,
+        options: [
+          { text: 'вік користувача', why: 'У назві не можна пробіл' },
+          { text: 'вікКористувача', ok: true },
+          { text: 'x', why: 'Через тиждень не зрозуміло, що всередині' },
+        ],
+        hint: 'Згадай верблюда 🐫: слова пишемо разом, а наступне слово — з великої літери.' },
+      { desc: 'Тут зберігаємо висоту стовпа', value: 10,
+        options: [
+          { text: 'висота стовпа', why: 'У назві не можна пробіл' },
+          { text: 'ВИСОТАСТОВПА', why: 'Важко читати, перше слово — з маленької літери' },
+          { text: 'висотаСтовпа', ok: true },
+        ],
+        hint: 'Перше слово з маленької, наступне з великої, без пробілу.' },
+    ],
+    remember: ["📦 Змінна (variable) — це скриня з підписом. Підпис — ім'я змінної, всередині — значення. Ім'я пишемо camelCase: вікКористувача."],
+  },
+
+  /* ---------- РАУНД 2 ---------- */
+  {
+    key: 'sort', title: 'Розклади по полицях', en: 'number / string', achievement: 'Сортувальник даних',
+    instruction: 'Куди покласти: на полицю «Число» чи «Рядок»?',
+    shelves: {
+      number: { icon: '🔢', name: 'Число (number)', note: 'з ним можна рахувати' },
+      string: { icon: '🔤', name: 'Рядок (string)', note: 'це текст у лапках' },
+    },
+    cardHint: 'Подивись: є лапки чи немає? З цим можна рахувати?',
+    tryAgain: 'Подивись уважніше! 👀',
+    tasks: [
+      { kind: 'card', value: '10', answer: 'number', explain: '10 — без лапок, з ним можна рахувати. Це число!' },
+      { kind: 'card', value: '"Петро"', answer: 'string', explain: '"Петро" — у лапках, це текст. Це рядок!' },
+      { kind: 'card', value: '25', answer: 'number', explain: '25 — без лапок, його можна додавати. Це число!' },
+      { kind: 'card', value: '"Привіт!"', answer: 'string', explain: '"Привіт!" — у лапках. Це рядок!' },
+      { kind: 'question', question: "Чому ім'я береться в лапки, а число — ні?",
+        answer: "Лапки кажуть комп'ютеру: «Це текст, його не рахуй». А число без лапок — для рахунку.",
+        hint: 'Чи можна додати «Петро» + 5?' },
+    ],
+    remember: ['🔢 Число (number) — без лапок, з ним можна рахувати.', '🔤 Рядок (string) — текст, завжди в лапках.'],
+  },
+
+  /* ---------- РАУНД 3: програма виконується по одному блоку ---------- */
+  {
+    key: 'setchange', title: 'Задати чи змінити?', en: 'set / change', achievement: 'Володар скринь',
+    question: 'Що буде в скрині після цього блоку?',
+    variable: 'енергіяКристала',
+    labels: { set: 'Задати = поклади нове', change: 'Змінити = додай до того, що є' },
+    tasks: [
+      { op: 'set', value: 5, hint: 'Скриня була порожня. «Задати» кладе туди число.', explain: 'Скриня була порожня — «задати» поклало 5.' },
+      { op: 'change', value: 3, hint: 'У скрині вже є 5. «Змінити на 3» — додай 3.', explain: 'Було 5, додали 3: 5 + 3 = 8.' },
+      { op: 'change', value: 2, hint: 'Було 8. Додай 2.', explain: 'Було 8, додали 2: 8 + 2 = 10.' },
+      { op: 'set', value: 1, hint: 'Обережно! «Задати» не додає, а викидає старе і кладе нове.', explain: 'Не 11, а 1! «Задати» замінює все, що було.' },
+    ],
+    remember: ['📥 Задати (set) — викинь старе, поклади нове.', '🔄 Змінити (change) — додай до того, що вже є.'],
+  },
+
+  /* ---------- РАУНД 4 ---------- */
+  {
+    key: 'calc', title: 'Магічний калькулятор', en: '+ − × /', achievement: 'Магічний калькулятор',
+    question: 'Що калькулятор скаже в чат?',
+    vars: [ { name: 'першеЧисло', value: 6 }, { name: 'другеЧисло', value: 2 } ],
+    player: 'Гравець',
+    tasks: [
+      { op: '+', hint: 'Дістань числа зі скринь: 6 і 2. Тепер додай.', explain: 'Калькулятор скаже: <b>8</b>' },
+      { op: '×', hint: '6 × 2 — це те саме, що 6 + 6.', explain: 'Калькулятор скаже: <b>12</b>' },
+      { op: '+', setFirst: 10,
+        question: 'Ми поклали в першеЧисло 10. Що тепер скаже команда першеЧисло + другеЧисло?',
+        hint: 'Код той самий — змінилося лише число в скрині.',
+        explain: 'Ось у чому магія змінних: змінюєш значення — змінюється результат!' },
+    ],
+    remember: ['🧮 Оператори + − × / рахують числа, які лежать у скринях. Змінив число в скрині — змінилася відповідь.'],
+  },
+
+  /* ---------- РАУНД 5: цикл ----------
+     action: 'step'   — «Показати відповідь» виконує один повтор
+             'runAll' — з'являється кнопка «Виконати до кінця»
+             'peek'   — число в скрині сховане до відповіді */
+  {
+    key: 'loop', title: 'Магічний стовп', en: 'loop', achievement: 'Будівельник стовпа',
+    variable: 'висотаСтовпа', command: 'третяВправа', times: 5, x: 10, z: 0,
+    runAllLabel: '▶ Виконати до кінця',
+    tasks: [
+      { question: 'На якій висоті Y стане перший блок?', action: 'step',
+        answer: 'Y = 0, бо спочатку у висотаСтовпа лежить 0.',
+        hint: 'Подивись у скриню: яке число там лежить перед першим повтором?' },
+      { question: 'А на якій висоті стане другий блок?', action: 'step',
+        answer: 'Y = 1, бо після першого блоку ми додали 1.',
+        hint: 'Що зробила команда «змінити значення на 1» після першого блоку?' },
+      { question: 'Що відбувається з Y на кожному повторі циклу?', action: 'runAll',
+        answer: 'Y збільшується на 1, тому кожен новий блок стає вище за попередній.',
+        hint: 'Порівняй числа в скрині до і після кожного повтору.' },
+      { question: 'Яке число лежить у скрині висотаСтовпа після останнього повтору?', action: 'peek',
+        answer: '5: ми додавали 1 п\'ять разів.',
+        hint: 'Скільки разів повторився цикл? Стільки разів ми додали 1.' },
+    ],
+    remember: ['🔁 У циклі (loop) змінна росте на 1 на кожному повторі — і стовп росте разом із нею!'],
+  },
+];
+
+/* =========================================================================
+   ПІКСЕЛЬНА ГРАФІКА (масиви пікселів → canvas)
+   ========================================================================= */
+const SPR = {
+  gold: {
+    rows: ['lllllllo','lyyyyyyd','lyyoyyyd','lyyyyoyd','lyoyyyyd','lyyyyyyd','lyyyoyyd','oddddddD'],
+    pal: { l:'#fff7a8', y:'#f5d33a', o:'#e3a91a', d:'#b27c0c', D:'#7c5507' },
+  },
+  flame: [
+    '.....o....',
+    '....oo....',
+    '....omo...',
+    '...ommo..o',
+    '..oommoo.o',
+    '..ommimmoo',
+    '.oommiimmo',
+    '.ommiiimmo',
+    'oommiiimmo',
+    'ommiiiimmo',
+    'ommiiiiimo',
+    '.ommiiimmo',
+    '..ommmmmo.',
+  ],
+  coal: ['..........', '...cgc.cg.', '..cgccgcc.', '.cccgcccgc'],
+  coalPal: { c:'#2b2b2b', g:'#555' },
+  brazier: [
+    'kkkkkkkkkkkkkk',
+    'klllllllllllsk',
+    'kssssssssssssk',
+    '.kssssksssssk.',
+    '.kssssssssssk.',
+    '..kkkkkkkkkk..',
+  ],
+  brazierPal: { k:'#1c1c1c', l:'#9a9a9a', s:'#6e6e6e' },
+  slab: [
+    '..kkkkkkkkkkkkkkkkkkkkkkkkkkk..',
+    '.klllllllllllllllllllllllllllk.',
+    '.ksssssksssssssksssssssksssssk.',
+    '..kkkkkkkkkkkkkkkkkkkkkkkkkkk..',
+  ],
+};
+
+// Кристал будується з трьох «осколків» за простим правилом граней
+const CRYSTAL_ROWS = (function () {
+  const W = 31, H = 31;
+  const g = Array.from({ length: H }, () => Array(W).fill('.'));
+  const darker = { e: 'd', d: 'c', c: 'b', b: 'b' };
+  function shard(cx, top, half, topH, midH, botH) {
+    const rows = topH + midH + botH;
+    for (let r = 0; r < rows; r++) {
+      let hw;
+      if (r < topH) hw = Math.round((r + 1) * half / topH);
+      else if (r < topH + midH) hw = half;
+      else hw = Math.max(0, Math.round((rows - r - 1) * half / botH));
+      for (let dx = -hw; dx <= hw; dx++) {
+        let ch;
+        if (Math.abs(dx) === hw) ch = 'a';
+        else if (dx === -hw + 1) ch = 'e';
+        else if (dx < 0) ch = 'd';
+        else if (dx === 0 || dx < hw / 2) ch = 'c';
+        else ch = 'b';
+        if ((r === topH || r === topH + midH) && ch !== 'a') ch = darker[ch];
+        g[top + r][cx + dx] = ch;
+      }
+    }
+  }
+  shard(6, 15, 3, 4, 7, 4);    // лівий малий
+  shard(24, 13, 3, 4, 9, 4);   // правий малий
+  shard(15, 0, 8, 8, 14, 8);   // головний
+  g[5][13] = 'e'; g[6][12] = 'e'; g[12][17] = 'd';  // відблиски
+  return g.map(r => r.join(''));
+})();
+
+/* =========================================================================
+   УТИЛІТИ
+   ========================================================================= */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const stage = $('#stage'), screenEl = $('#screen'), fx = $('#fx');
+const LETTERS = ['А', 'Б', 'В'];
+
+function el(tag, cls, html) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html != null) e.innerHTML = html;
+  return e;
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+// Малює масив рядків-пікселів у canvas
+function drawPix(c, rows, pal) {
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, c.width, c.height);
+  rows.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(x, y, 1, 1); }
+  }));
+}
+function pix(rows, pal, px) {
+  const c = document.createElement('canvas');
+  c.width = rows[0].length; c.height = rows.length;
+  c.className = 'pix';
+  c.style.width = c.width * px + 'px'; c.style.height = c.height * px + 'px';
+  drawPix(c, rows, pal);
+  return c;
+}
+function mix(a, b, t) {
+  const p = h => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16));
+  const A = p(a), B = p(b);
+  return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+// Палітра кристала: від сіро-фіолетового (0) до яскравого (1)
+function crystalPal(t) {
+  const off = { a:'#1e1828', b:'#3c3548', c:'#544c63', d:'#6b6479', e:'#8a8496' };
+  const on  = { a:'#2a0b55', b:'#5b1fb0', c:'#8d42f0', d:'#b77dff', e:'#f2e0ff' };
+  const r = {};
+  for (const k in off) r[k] = mix(off[k], on[k], t);
+  return r;
+}
+function crystalEl(level, px) {
+  const w = el('div', 'crystal-wrap');
+  w.append(pix(CRYSTAL_ROWS, crystalPal(level / 5), px));
+  w.append(pix(SPR.slab, SPR.brazierPal, px));
+  crystalGlow(w, level);
+  return w;
+}
+function setCrystal(w, level) {
+  drawPix(w.querySelector('canvas'), CRYSTAL_ROWS, crystalPal(level / 5));
+  crystalGlow(w, level);
+}
+function crystalGlow(w, l) {
+  w.style.filter = l ? `drop-shadow(0 0 ${6 + l * 6}px rgba(176,107,255,${(0.25 + l * 0.13).toFixed(2)}))` : 'none';
+}
+const flameEl = (i, px) => pix(SPR.flame, FIRES[i], px);
+const coalEl = px => pix(SPR.coal, SPR.coalPal, px);
+const goldEl = px => pix(SPR.gold.rows, SPR.gold.pal, px);
+
+// Фонова піксельна текстура (ледь помітний шум), детермінована
+(function makeNoise() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'); let s = 7;
+  const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
+    const v = rnd();
+    g.fillStyle = v < .5 ? `rgba(255,255,255,${((.5 - v) * .09).toFixed(3)})` : `rgba(0,0,0,${((v - .5) * .14).toFixed(3)})`;
+    g.fillRect(x, y, 1, 1);
+  }
+  document.documentElement.style.setProperty('--noise', `url(${c.toDataURL()})`);
+})();
+
+// Масштаб сцени під розмір вікна (без скролу)
+function fit() { stage.style.setProperty('--s', Math.min(innerWidth / 1280, innerHeight / 720)); }
+addEventListener('resize', fit); fit();
+
+// Координати елемента в системі сцени 1280×720
+function box(e) {
+  const s = stage.getBoundingClientRect(), r = e.getBoundingClientRect(), k = s.width / 1280;
+  const x = (r.left - s.left) / k, y = (r.top - s.top) / k, w = r.width / k, h = r.height / k;
+  return { x, y, w, h, cx: x + w / 2, cy: y + h / 2 };
+}
+
+/* =========================================================================
+   КЕРУВАННЯ АНІМАЦІЯМИ
+   Будь-яку анімацію можна перервати кнопкою «Далі»/«Назад»:
+   тоді екран просто перемальовується з потрібного стану.
+   ========================================================================= */
+let animId = 0, busy = false;
+const running = new Set();
+const CANCEL = { cancelled: true };
+function anim(e, kf, opt) {
+  const a = e.animate(kf, opt);
+  running.add(a);
+  a.finished.then(() => running.delete(a), () => running.delete(a));
+  return a;
+}
+const fin = a => a.finished.catch(() => {});
+function interrupt() {
+  animId++; busy = false;
+  running.forEach(a => { try { a.cancel(); } catch (e) {} });
+  running.clear();
+  fx.innerHTML = '';
+}
+async function play(fn) {
+  const id = ++animId; busy = true; updatePanel();
+  const chk = async p => { await p; if (id !== animId) throw CANCEL; };
+  try { await fn(chk); } catch (e) { if (e !== CANCEL) console.error(e); }
+  if (id === animId) { busy = false; updatePanel(); }
+}
+
+// Летючий текст/фішка від одного елемента до іншого по дузі
+function flyText(text, fromEl, toEl, { cls = 'fly-num', dur = 700, fade = false, scale = 1, arc = 70 } = {}) {
+  const a = box(fromEl), b = box(toEl);
+  const d = el('div', 'fly ' + cls); d.textContent = text;
+  d.style.left = a.cx + 'px'; d.style.top = a.cy + 'px';
+  fx.append(d);
+  const dx = b.cx - a.cx, dy = b.cy - a.cy;
+  const T = (x, y, s) => `translate(-50%,-50%) translate(${x}px,${y}px) scale(${s})`;
+  return fin(anim(d, [
+    { transform: T(0, 0, 1), opacity: 1 },
+    { transform: T(dx / 2, dy / 2 - arc, (1 + scale) / 2 * 1.1), opacity: 1, offset: .5 },
+    { transform: T(dx, dy, scale), opacity: fade ? 0 : 1 },
+  ], { duration: dur, easing: 'ease-in-out', fill: 'forwards' })).then(() => d.remove());
+}
+// Напис «на мить» над елементом
+function flash(text, anchor) {
+  const b = box(anchor);
+  const d = el('div', 'flash', esc(text));
+  d.style.left = b.cx + 'px'; d.style.top = (b.y - 10) + 'px';
+  fx.append(d);
+  fin(anim(d, [
+    { opacity: 0, transform: 'translate(-50%,-100%) scale(.85)' },
+    { opacity: 1, transform: 'translate(-50%,-100%) scale(1)', offset: .1 },
+    { opacity: 1, transform: 'translate(-50%,-100%) scale(1)', offset: .85 },
+    { opacity: 0, transform: 'translate(-50%,-100%) scale(1)' },
+  ], { duration: 2600, fill: 'forwards' })).then(() => d.remove());
+}
+// Іскри — тільки в моменти успіху
+function sparkle(x, y, n = 18) {
+  const cols = ['#f7c934', '#b06bff', '#ffffff', '#5fd8ff'];
+  for (let i = 0; i < n; i++) {
+    const s = el('div', 'spark');
+    s.style.left = x + 'px'; s.style.top = y + 'px';
+    s.style.background = cols[i % cols.length];
+    fx.append(s);
+    const a = Math.random() * Math.PI * 2, r = 60 + Math.random() * 110;
+    fin(anim(s, [
+      { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 },
+      { transform: `translate(calc(-50% + ${Math.cos(a) * r}px), calc(-50% + ${Math.sin(a) * r}px)) scale(.4)`, opacity: 0 },
+    ], { duration: 700 + Math.random() * 400, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' })).then(() => s.remove());
+  }
+}
+
+/* =========================================================================
+   СКРИНЯ
+   ========================================================================= */
+function makeChest({ name, value = null, w = 240, unknown = false, hidden = false }) {
+  const c = el('div', 'chest-wrap');
+  c.style.setProperty('--w', w + 'px');
+  const shown = hidden ? '?' : (value == null ? '' : value);
+  c.innerHTML =
+    `<div class="vsign wood${unknown ? ' unknown' : ''}">${esc(name)}</div><div class="vpost"></div>
+     <div class="chest"><div class="lid"></div>
+       <div class="mouth${value == null && !hidden ? ' empty' : ''}"><span class="val${hidden ? ' hidden' : ''}">${esc(shown)}</span></div>
+       <div class="front"><div class="latch"></div></div></div>`;
+  return c;
+}
+function setVal(c, v) {
+  const val = c.querySelector('.val');
+  val.classList.remove('hidden');
+  val.textContent = v == null ? '' : v;
+  c.querySelector('.mouth').classList.toggle('empty', v == null);
+}
+// «Задати»: старе значення вилітає, нове падає всередину
+async function animSet(c, v, chk) {
+  const val = c.querySelector('.val');
+  if (val.textContent !== '') {
+    const b = box(val);
+    const g = el('div', 'fly fly-val'); g.textContent = val.textContent;
+    g.style.fontSize = getComputedStyle(val).fontSize;
+    g.style.left = b.cx + 'px'; g.style.top = b.cy + 'px';
+    fx.append(g);
+    val.textContent = '';
+    await chk(fin(anim(g, [
+      { transform: 'translate(-50%,-50%)', opacity: 1 },
+      { transform: 'translate(calc(-50% + 90px), calc(-50% - 170px)) rotate(30deg) scale(.6)', opacity: 0 },
+    ], { duration: 600, easing: 'ease-in', fill: 'forwards' })));
+    g.remove();
+  } else {
+    c.querySelector('.mouth').classList.remove('empty');
+  }
+  setVal(c, v);
+  await chk(fin(anim(val, [
+    { transform: 'translateY(-190px) scale(1.15)', opacity: 0 },
+    { transform: 'translateY(8px) scale(1)', opacity: 1, offset: .7 },
+    { transform: 'translateY(0)', opacity: 1 },
+  ], { duration: 650, easing: 'ease-out' })));
+}
+// Плавний перерахунок числа в скрині
+async function animCount(c, from, to, chk) {
+  const val = c.querySelector('.val');
+  const step = to >= from ? 1 : -1;
+  for (let v = from + step; ; v += step) {
+    setVal(c, v);
+    anim(val, [{ transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 180, easing: 'ease-out' });
+    await chk(wait(200));
+    if (v === to) break;
+  }
+}
+function answerEl(html) { return el('div', 'answer', html); }
+
+/* =========================================================================
+   СТАН ГРИ
+   ========================================================================= */
+const S = {
+  screen: 'start',   // start | map | round | remember | final
+  r: 0,              // номер раунду
+  t: 0,              // номер завдання в раунді
+  revealed: false,   // чи показана відповідь
+  hint: false,       // чи відкрита підказка
+  run5: false,       // раунд 5: натиснута «Виконати до кінця»
+  done: [false, false, false, false, false],
+  justLit: -1,       // який вогонь щойно запалили (для анімації на карті)
+};
+let lastKey = '';
+
+/* =========================================================================
+   РАУНДИ: кожен модуль має question, hint, render, reveal
+   ========================================================================= */
+const MODS = {};
+
+/* ---------- Раунд 1. Підпиши скриню ---------- */
+MODS.name = {
+  question: R => esc(R.instruction),
+  hint: (R, t) => R.tasks[t].hint,
+  render(R, vis) {
+    const T = R.tasks[S.t], ok = T.options.findIndex(o => o.ok);
+    const w = el('div', 'r1');
+    w.append(el('div', 'desc', '📝 ' + esc(T.desc)));
+    w.append(makeChest({ name: S.revealed ? T.options[ok].text : '?', unknown: !S.revealed, value: T.value, w: 190 }));
+    const plates = el('div', 'plates');
+    T.options.forEach((o, i) => {
+      const col = el('div', 'plate-col');
+      col.append(el('div', 'plate wood' + (S.revealed && o.ok ? ' ok' : ''),
+        `<span class="letter">${LETTERS[i]}</span><span class="pname">${esc(o.text)}</span>`));
+      col.append(el('div', 'why' + (o.ok ? ' good' : '') + (S.revealed ? ' show' : ''),
+        o.ok ? '✅ ' + esc(R.okNote) : '🤔 ' + esc(o.why)));
+      plates.append(col);
+    });
+    w.append(plates);
+    vis.append(w);
+  },
+  async reveal(R, chk) {
+    const T = R.tasks[S.t], ok = T.options.findIndex(o => o.ok);
+    const plate = $$('.plate')[ok], sign = $('.vsign');
+    plate.classList.add('ok');
+    await chk(wait(300));
+    // табличка «летить» і чіпляється на скриню
+    const a = box(plate), b = box(sign);
+    const g = plate.cloneNode(true);
+    Object.assign(g.style, { position: 'absolute', left: a.x + 'px', top: a.y + 'px', width: a.w + 'px', height: a.h + 'px', margin: 0 });
+    fx.append(g);
+    await chk(fin(anim(g, [
+      { transform: 'translate(0,0) scale(1)', opacity: 1 },
+      { transform: `translate(${b.cx - a.cx}px,${b.cy - a.cy}px) scale(.85)`, opacity: .9 },
+    ], { duration: 700, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' })));
+    g.remove();
+    sign.textContent = T.options[ok].text;
+    sign.classList.remove('unknown');
+    anim(sign, [{ transform: 'scale(1.2)' }, { transform: 'scale(1)' }], { duration: 300, easing: 'ease-out' });
+    for (const w of $$('.why')) { w.classList.add('show'); await chk(wait(200)); }
+  },
+};
+
+/* ---------- Раунд 2. Розклади по полицях ---------- */
+MODS.sort = {
+  question: (R, t) => esc(R.tasks[t].question || R.instruction),
+  hint: (R, t) => R.tasks[t].kind === 'card' ? R.cardHint : R.tasks[t].hint,
+  render(R, vis) {
+    const T = R.tasks[S.t];
+    const top = el('div', 'r2-top');
+    if (T.kind === 'card') {
+      if (S.revealed) top.append(answerEl('✅ ' + esc(T.explain)));
+      else { top.append(el('div', 'item-card big', esc(T.value))); top.append(el('div', 'r2-msg')); }
+    } else if (S.revealed) {
+      top.append(answerEl('✅ ' + esc(T.answer)));
+    }
+    vis.append(top);
+    const shelves = el('div', 'shelves');
+    ['number', 'string'].forEach(kind => {
+      const sh = el('div', 'shelf'), info = R.shelves[kind];
+      sh.dataset.kind = kind;
+      sh.innerHTML = `<div class="shelf-sign wood"><b>${info.icon} ${esc(info.name)}</b><span>${esc(info.note)}</span></div>
+        <div class="shelf-items"></div><div class="shelf-plank wood"></div>`;
+      const items = sh.querySelector('.shelf-items');
+      R.tasks.forEach((tk, i) => {
+        if (tk.kind === 'card' && tk.answer === kind && (i < S.t || (i === S.t && S.revealed)))
+          items.append(el('div', 'item-card small', esc(tk.value)));
+      });
+      if (T.kind === 'card' && !S.revealed) sh.classList.add('pick');
+      sh.onclick = () => pickShelf(kind);
+      shelves.append(sh);
+    });
+    vis.append(shelves);
+  },
+  async reveal(R, chk) {
+    const T = R.tasks[S.t];
+    const top = $('.r2-top');
+    if (T.kind !== 'card') { top.append(el('div', 'answer pop', '✅ ' + esc(T.answer))); return; }
+    $$('.shelf').forEach(s => s.classList.remove('pick'));
+    const card = $('.item-card.big'), msg = $('.r2-msg');
+    msg.innerHTML = '';
+    const items = $(`.shelf[data-kind="${T.answer}"] .shelf-items`);
+    const ph = el('div', 'item-card small', esc(T.value));
+    ph.style.visibility = 'hidden';
+    items.append(ph);
+    // картка плавно ставиться на полицю
+    const a = box(card), b = box(ph);
+    const g = card.cloneNode(true);
+    Object.assign(g.style, { position: 'absolute', left: a.x + 'px', top: a.y + 'px', width: a.w + 'px', height: a.h + 'px', transformOrigin: '0 0' });
+    fx.append(g);
+    card.style.visibility = 'hidden';
+    const s = b.h / a.h;
+    await chk(fin(anim(g, [
+      { transform: 'translate(0,0) scale(1)' },
+      { transform: `translate(${(b.x - a.x) / 2}px,${(b.y - a.y) / 2 - 60}px) scale(${(1 + s) / 2})`, offset: .5 },
+      { transform: `translate(${b.cx - a.x - a.w * s / 2}px,${b.y - a.y}px) scale(${s})` },
+    ], { duration: 800, easing: 'ease-in-out', fill: 'forwards' })));
+    g.remove();
+    ph.style.visibility = '';
+    anim(ph, [{ transform: 'translateY(-10px)' }, { transform: 'translateY(0)' }], { duration: 200 });
+    card.remove(); msg.remove();
+    top.append(el('div', 'answer pop', '✅ ' + esc(T.explain)));
+  },
+};
+// Вчитель клікає полицю, яку назвав клас
+function pickShelf(kind) {
+  if (S.screen !== 'round' || ROUNDS[S.r].key !== 'sort' || S.revealed || busy) return;
+  const R = ROUNDS[S.r], T = R.tasks[S.t];
+  if (T.kind !== 'card') return;
+  if (kind === T.answer) { reveal(); return; }
+  const card = $('.item-card.big'), msg = $('.r2-msg');
+  anim(card, [{ transform: 'translateX(0)' }, { transform: 'translateX(-14px)' }, { transform: 'translateX(14px)' },
+    { transform: 'translateX(-9px)' }, { transform: 'translateX(7px)' }, { transform: 'translateX(0)' }], { duration: 450 });
+  msg.innerHTML = '';
+  msg.append(el('div', 'try pop', esc(R.tryAgain)));
+}
+
+/* ---------- Раунд 3. Задати чи змінити? ---------- */
+function valueAfter(R, k) {          // значення в скрині після k блоків
+  let v = null;
+  for (let i = 0; i < k; i++) { const b = R.tasks[i]; v = b.op === 'set' ? b.value : (v || 0) + b.value; }
+  return v;
+}
+function blkSet(name, value) {
+  return `<div class="blk c-var">задати <span class="dd">${esc(name)} ▾</span> значення <span class="slot">${esc(value)}</span></div>`;
+}
+function blkChange(name, value) {
+  return `<div class="blk c-var">змінити значення <span class="dd">${esc(name)} ▾</span> на <span class="slot">${esc(value)}</span></div>`;
+}
+MODS.setchange = {
+  question: R => esc(R.question),
+  hint: (R, t) => R.tasks[t].hint,
+  render(R, vis) {
+    const k = S.t + (S.revealed ? 1 : 0);
+    const w = el('div', 'r3');
+    const left = el('div', 'left'), code = el('div', 'code');
+    code.innerHTML = R.tasks.map(b => b.op === 'set' ? blkSet(R.variable, b.value) : blkChange(R.variable, b.value)).join('');
+    $$('.blk', code).forEach((b, i) => { if (i === S.t) b.classList.add('hl'); if (i < k) b.classList.add('done'); });
+    const ans = el('div', 'ans');
+    if (S.revealed) ans.append(answerEl(`У скрині: <b>${valueAfter(R, k)}</b>. ${esc(R.tasks[S.t].explain)}`));
+    left.append(code, ans);
+    const right = el('div', 'right');
+    right.append(makeChest({ name: R.variable, value: valueAfter(R, k), w: 260 }));
+    w.append(left, right);
+    vis.append(w);
+  },
+  async reveal(R, chk) {
+    const b = R.tasks[S.t], blk = $$('.r3 .code .blk')[S.t], chest = $('.r3 .chest-wrap');
+    const before = valueAfter(R, S.t), after = valueAfter(R, S.t + 1);
+    if (b.op === 'set') {
+      flash(R.labels.set, chest);
+      await animSet(chest, after, chk);
+    } else {
+      flash(R.labels.change, chest);
+      await chk(flyText('+' + b.value, blk.querySelector('.slot'), chest.querySelector('.mouth'), { cls: 'fly-chip', fade: true }));
+      await animCount(chest, before || 0, after, chk);
+    }
+    blk.classList.add('done');
+    $('.r3 .ans').append(el('div', 'answer pop', `У скрині: <b>${after}</b>. ${esc(b.explain)}`));
+  },
+};
+
+/* ---------- Раунд 4. Магічний калькулятор ---------- */
+function calc(a, op, b) {
+  switch (op) { case '+': return a + b; case '−': case '-': return a - b; case '×': return a * b; case '/': return a / b; }
+}
+function firstAt(R, i) {             // значення першеЧисло під час завдання i (після «задати», якщо є)
+  let v = R.vars[0].value;
+  for (let j = 0; j <= i; j++) if (R.tasks[j].setFirst != null) v = R.tasks[j].setFirst;
+  return v;
+}
+MODS.calc = {
+  question: (R, t) => esc(R.tasks[t].question || R.question),
+  hint: (R, t) => R.tasks[t].hint,
+  render(R, vis) {
+    const T = R.tasks[S.t], rev = S.revealed;
+    const v1 = rev ? firstAt(R, S.t) : (S.t > 0 ? firstAt(R, S.t - 1) : R.vars[0].value);
+    const v2 = R.vars[1].value;
+    const w = el('div', 'r4');
+    const left = el('div', 'left');
+    const setslot = el('div', 'setslot');
+    if (T.setFirst != null) setslot.innerHTML = blkSet(R.vars[0].name, T.setFirst);
+    const chests = el('div', 'chests');
+    chests.append(makeChest({ name: R.vars[0].name, value: v1, w: 150 }), makeChest({ name: R.vars[1].name, value: v2, w: 150 }));
+    const say = el('div', 'saycode',
+      `<div class="blk c-player">сказати <span class="blk c-math"><span class="var">${esc(R.vars[0].name)}</span><span class="opch">${esc(T.op)}</span><span class="var">${esc(R.vars[1].name)}</span></span></div>`);
+    left.append(setslot, chests, say);
+    const right = el('div', 'right');
+    const res = rev ? calc(v1, T.op, v2) : null;
+    right.innerHTML = `<div class="eq">
+        <span class="bx a${rev ? ' f' : ''}">${rev ? v1 : '?'}</span><span class="sym op">${esc(T.op)}</span>
+        <span class="bx b${rev ? ' f' : ''}">${rev ? v2 : '?'}</span><span class="sym">=</span>
+        <span class="bx res${rev ? ' f' : ''}">${rev ? res : '?'}</span></div><div class="ans"></div>`;
+    if (rev) right.querySelector('.ans').append(answerEl(T.explain));
+    // Чат Minecraft: результати попередніх завдань + поточного (якщо показано)
+    const chat = el('div', 'chat');
+    const lines = [];
+    for (let i = 0; i < S.t + (rev ? 1 : 0); i++) lines.push(calc(firstAt(R, i), R.tasks[i].op, v2));
+    if (!lines.length) chat.append(el('div', 'chat-line empty', '💬 чат'));
+    lines.slice(-2).forEach(n => chat.append(chatLine(R, n)));
+    w.append(left, right);
+    vis.append(w, chat);
+  },
+  async reveal(R, chk) {
+    const T = R.tasks[S.t];
+    const [c1, c2] = $$('.r4 .chest-wrap');
+    if (T.setFirst != null) {
+      const sb = $('.r4 .setslot .blk');
+      sb.classList.add('hl');
+      await animSet(c1, T.setFirst, chk);
+      sb.classList.remove('hl'); sb.classList.add('done');
+      await chk(wait(300));
+    }
+    const say = $('.r4 .saycode > .blk');
+    say.classList.add('hl');
+    const v1 = firstAt(R, S.t), v2 = R.vars[1].value, res = calc(v1, T.op, v2);
+    const A = $('.eq .a'), B = $('.eq .b'), RES = $('.eq .res');
+    await chk(Promise.all([
+      flyText(v1, c1.querySelector('.val'), A),
+      flyText(v2, c2.querySelector('.val'), B),
+    ]));
+    A.textContent = v1; B.textContent = v2; A.classList.add('f'); B.classList.add('f');
+    anim($('.eq .op'), [{ transform: 'scale(1.6)' }, { transform: 'scale(1)' }], { duration: 350 });
+    await chk(wait(450));
+    RES.textContent = res; RES.classList.add('f');
+    anim(RES, [{ transform: 'scale(.5)', opacity: 0 }, { transform: 'scale(1.15)', opacity: 1 }, { transform: 'scale(1)' }], { duration: 400 });
+    await chk(wait(450));
+    // рядок у чаті
+    const chat = $('.chat');
+    $$('.chat-line.empty', chat).forEach(e => e.remove());
+    const line = chatLine(R, res);
+    chat.append(line);
+    while (chat.children.length > 2) chat.firstElementChild.remove();
+    anim(line, [{ transform: 'translateX(-30px)', opacity: 0 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 300 });
+    say.classList.remove('hl');
+    $('.r4 .ans').append(el('div', 'answer pop', T.explain));
+  },
+};
+function chatLine(R, n) { return el('div', 'chat-line', `<span class="who">&lt;${esc(R.player)}&gt;</span> ${esc(n)}`); }
+
+/* ---------- Раунд 5. Магічний стовп ---------- */
+function itersAfter(R, task, n) {   // скільки повторів виконано після відповіді на завдання
+  if (task.action === 'step') return Math.min(n + 1, R.times);
+  if (task.action === 'runAll') return R.times;
+  return n;
+}
+function itersNow(R) {
+  let n = 0;
+  for (let i = 0; i < S.t; i++) n = itersAfter(R, R.tasks[i], n);
+  const T = R.tasks[S.t];
+  if (S.revealed) return itersAfter(R, T, n);
+  if (T.action === 'runAll' && S.run5) return R.times;
+  return n;
+}
+function r5Code(R) {
+  const v = esc(R.variable);
+  return `<div class="cb c-player">
+    <div class="blk hat" id="b-hat">при команді чату <span class="slot">"${esc(R.command)}"</span></div>
+    <div class="cb-mid"><div class="cb-spine"></div><div class="cb-kids">
+      <div class="blk c-var done" id="b-set">задати <span class="dd">${v} ▾</span> значення <span class="slot">0</span></div>
+      <div class="cb c-loop">
+        <div class="blk" id="b-loop">повторити <span class="slot">${R.times}</span> разів</div>
+        <div class="cb-mid"><div class="cb-spine"></div><div class="cb-kids">
+          <div class="blk c-blocks place" id="b-place"><div class="rows">
+            <div class="row">розмістити <span class="dd"><i class="goldi"></i> золотий блок ▾</span></div>
+            <div class="row">у положенні <span class="pos">~<span class="slot">${R.x}</span> ~<span class="var">${v}</span> ~<span class="slot">${R.z}</span></span></div>
+          </div></div>
+          <div class="blk c-var" id="b-change">змінити значення <span class="dd">${v} ▾</span> на <span class="slot">1</span></div>
+        </div></div>
+        <div class="cb-foot"></div>
+      </div>
+    </div></div>
+    <div class="cb-foot"></div>
+  </div>`;
+}
+MODS.loop = {
+  question: (R, t) => esc(R.tasks[t].question),
+  hint: (R, t) => R.tasks[t].hint,
+  render(R, vis) {
+    const T = R.tasks[S.t], n = itersNow(R);
+    const hidden = T.action === 'peek' && !S.revealed;
+    const w = el('div', 'r5');
+    const code = el('div', 'codecol', r5Code(R));
+    if (n < R.times) code.querySelector('#b-place').classList.add('hl');
+    const grid = el('div', 'gridcol');
+    for (let y = R.times; y >= 0; y--) {
+      const row = el('div', 'yrow', `<span class="ylab">Y=${y}</span><div class="ycell"></div>`);
+      row.dataset.y = y;
+      if (y < n) row.querySelector('.ycell').append(goldEl(6));
+      grid.append(row);
+    }
+    grid.append(el('div', 'ground'));
+    const right = el('div', 'rightcol');
+    right.append(makeChest({ name: R.variable, value: n, w: 190, hidden }));
+    right.append(el('div', 'counter inv', `Повтор <b>${n}</b> з ${R.times}`));
+    if (T.action === 'runAll' && !S.revealed && n < R.times) {
+      const b = el('button', 'mc-btn gold runall', esc(R.runAllLabel));
+      b.onmousedown = e => e.preventDefault();
+      b.onclick = runAll;
+      right.append(b);
+    }
+    w.append(code, grid, right);
+    const ans = el('div', 'ans');
+    if (S.revealed) ans.append(answerEl('✅ ' + esc(T.answer)));
+    vis.append(w, ans);
+  },
+  async reveal(R, chk) {
+    const T = R.tasks[S.t];
+    $('.r5 .runall')?.remove();
+    let n = itersNow2(R);
+    if (T.action === 'step') await loopStep(R, n, chk);
+    if (T.action === 'runAll') for (; n < R.times; n++) { await loopStep(R, n, chk); await chk(wait(350)); }
+    if (T.action === 'peek') {
+      const c = $('.r5 .chest-wrap');
+      setVal(c, n);
+      await chk(fin(anim(c.querySelector('.val'), [{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.2)', opacity: 1 }, { transform: 'scale(1)' }], { duration: 450 })));
+    }
+    $('.visual > .ans').append(el('div', 'answer pop', '✅ ' + esc(T.answer)));
+  },
+};
+// Скільки повторів уже видно на екрані (стан ДО відповіді)
+function itersNow2(R) { const keep = S.revealed; S.revealed = false; const n = itersNow(R); S.revealed = keep; return n; }
+
+// Один повтор циклу: блок ставиться на висоту зі скрині, потім +1 у скриню
+async function loopStep(R, n, chk) {
+  const place = $('#b-place'), change = $('#b-change'), loop = $('#b-loop');
+  const chest = $('.r5 .chest-wrap'), val = chest.querySelector('.val');
+  place.classList.add('hl'); loop.classList.add('hl');
+  $('.counter').innerHTML = `Повтор <b>${n + 1}</b> з ${R.times}`;
+  const row = $(`.yrow[data-y="${n}"]`);
+  await chk(flyText('Y = ' + n, val, row.querySelector('.ylab'), { cls: 'fly-chip', dur: 650, scale: .8, fade: true }));
+  const cell = row.querySelector('.ycell'), blk = goldEl(6);
+  cell.append(blk);
+  await chk(fin(anim(blk, [
+    { transform: `translateY(-${(R.times - n) * 50 + 40}px)`, opacity: 0 },
+    { transform: 'translateY(0)', opacity: 1 },
+  ], { duration: 450, easing: 'cubic-bezier(.5,0,.75,0)' })));
+  anim(blk, [{ transform: 'scale(1.12,.88)' }, { transform: 'scale(1)' }], { duration: 160 });
+  await chk(wait(250));
+  place.classList.remove('hl'); change.classList.add('hl');
+  await chk(flyText('+1', change.querySelector('.slot'), chest.querySelector('.mouth'), { cls: 'fly-chip', fade: true }));
+  await animCount(chest, n, n + 1, chk);
+  await chk(wait(200));
+  change.classList.remove('hl'); loop.classList.remove('hl');
+  if (n + 1 < R.times) place.classList.add('hl');
+}
+// Кнопка «Виконати до кінця» (лише в завданні 3 раунду 5)
+function runAll() {
+  const R = ROUNDS[S.r];
+  if (busy || S.revealed || S.run5) return;
+  let n = itersNow(R);
+  S.run5 = true;
+  $('.r5 .runall')?.remove();
+  play(async chk => { for (; n < R.times; n++) { await loopStep(R, n, chk); await chk(wait(350)); } });
+}
+
+/* =========================================================================
+   ЕКРАНИ
+   ========================================================================= */
+function button(label, cls, fn, id) {
+  const b = el('button', 'mc-btn ' + (cls || ''), label);
+  if (id) b.id = id;
+  b.onmousedown = e => e.preventDefault();   // щоб пробіл не «натискав» кнопку з фокусом
+  b.onclick = fn;
+  return b;
+}
+
+function startView() {
+  const v = el('div', 'view start');
+  v.append(crystalEl(0, 5));
+  v.querySelector('.crystal-wrap').style.position = 'relative';
+  const sign = el('div', 'title-sign wood', `<h1>${esc(TEXTS.startTitle)}</h1><p>${esc(TEXTS.startSub)}</p>`);
+  v.append(sign);
+  const go = button(TEXTS.startBtn, 'green big go', () => go2map());
+  v.append(go);
+  v.append(button('⛶ На весь екран', 'small fs-btn', toggleFullscreen));
+  v.append(el('div', 'keys', 'Для вчителя: <kbd>Пробіл</kbd> відповідь / далі · <kbd>H</kbd> підказка · <kbd>←</kbd> <kbd>→</kbd> назад / далі'));
+  return v;
+}
+
+// Позиції гнізд-вогнів на карті (центр по X, верх по Y)
+const SOCKETS = [ [300, 150], [230, 380], [640, 506], [1050, 380], [980, 150] ];
+function mapView() {
+  const v = el('div', 'view map');
+  v.append(el('div', 'map-note inv', esc(TEXTS.mapNote)));
+  const lit = S.done.filter(Boolean).length;
+  const litNow = S.justLit;
+  const cr = crystalEl(litNow >= 0 ? lit - 1 : lit, 8);
+  Object.assign(cr.style, { left: (640 - 124) + 'px', top: '200px' });
+  v.append(cr);
+  ROUNDS.forEach((R, i) => {
+    const s = el('div', 'socket' + (S.done[i] ? ' lit' : ''));
+    s.dataset.i = i;
+    s.style.left = SOCKETS[i][0] + 'px'; s.style.top = SOCKETS[i][1] + 'px';
+    const fire = el('div', 'fire');
+    fire.append(S.done[i] && i !== litNow ? flameEl(i, 6) : coalEl(6));
+    s.append(fire, pix(SPR.brazier, SPR.brazierPal, 6));
+    s.append(el('div', 'slabel wood', `<div class="sn">${i + 1}. ${esc(R.title)}</div><div class="se">${esc(R.en)}</div>`));
+    s.onclick = () => openRound(i);
+    v.append(s);
+  });
+  const all = S.done.every(Boolean);
+  v.append(button(all ? TEXTS.finalBtnReady : TEXTS.finalBtn, (all ? 'green' : '') + ' map-final', goFinal));
+  if (litNow >= 0) {
+    S.justLit = -1;
+    v._after = () => play(async chk => {
+      await chk(wait(450));
+      const s = $(`.socket[data-i="${litNow}"]`), fire = s.querySelector('.fire');
+      fire.innerHTML = ''; const f = flameEl(litNow, 6); fire.append(f);
+      anim2(f);
+      const b = box(f); sparkle(b.cx, b.cy, 14);
+      await chk(wait(500));
+      const c = $('.crystal-wrap');
+      setCrystal(c, lit);
+      fin(anim3(c));
+      const cb = box(c); sparkle(cb.cx, cb.cy - 30, 22);
+    });
+  }
+  return v;
+}
+const anim2 = e => anim(e, [{ transform: 'scale(0)', transformOrigin: '50% 100%' }, { transform: 'scale(1.2)', transformOrigin: '50% 100%' }, { transform: 'scale(1)', transformOrigin: '50% 100%' }], { duration: 500, easing: 'ease-out' });
+const anim3 = e => anim(e, [{ transform: 'scale(1)' }, { transform: 'scale(1.06)' }, { transform: 'scale(1)' }], { duration: 600 });
+
+function roundView() {
+  const R = ROUNDS[S.r], M = MODS[R.key];
+  const v = el('div', 'view round');
+  v.append(el('div', 'round-sign wood',
+    `<div class="t">Раунд ${S.r + 1} · ${esc(R.title)}</div><div class="en">${esc(R.en)}</div><div class="cnt">${S.t + 1}/${R.tasks.length}</div>`));
+  v.append(el('div', 'hint' + (S.hint ? ' show' : ''), '💡 ' + esc(M.hint(R, S.t) || '')));
+  const body = el('div', 'body');
+  body.append(el('div', 'qpanel inv', M.question(R, S.t)));
+  const vis = el('div', 'visual');
+  body.append(vis);
+  v.append(body);
+  M.render(R, vis);
+  const p = el('div', 'panel');
+  p.append(
+    button(TEXTS.btnBack, '', back, 'b-back'),
+    button(TEXTS.btnHint, 'gold', toggleHint, 'b-hint'),
+    button(TEXTS.btnAnswer, 'green', reveal, 'b-ans'),
+    button(TEXTS.btnNext, '', next, 'b-next'),
+  );
+  v.append(p);
+  return v;
+}
+
+function rememberView() {
+  const R = ROUNDS[S.r];
+  const v = el('div', 'view remember');
+  v.append(el('div', 'round-sign wood', `<div class="t">${esc(TEXTS.remember)}</div><div class="en">Раунд ${S.r + 1} · ${esc(R.en)}</div>`));
+  const st = el('div', 'rem-stage');
+  st.append(el('div', 'rcard drop', R.remember.map(p => `<p>${esc(p)}</p>`).join('')));
+  st.append(el('div', 'shelf-big wood'));
+  v.append(st);
+  const p = el('div', 'panel');
+  p.append(button(TEXTS.btnBack, '', back), button(TEXTS.toMap, 'green', toMap));
+  v.append(p);
+  return v;
+}
+
+function finalView() {
+  const v = el('div', 'view final');
+  const top = el('div', 'final-top');
+  const cr = crystalEl(5, 6);
+  top.append(cr);
+  const right = el('div', '');
+  right.append(el('div', 'final-title', esc(TEXTS.finalTitle)));
+  const fires = el('div', 'final-fires');
+  ROUNDS.forEach((R, i) => {
+    const f = el('div', 'ff');
+    f.append(flameEl(i, 5), pix(SPR.brazier, SPR.brazierPal, 5));
+    fires.append(f);
+  });
+  right.append(fires);
+  top.append(right);
+  v.append(top);
+  const shelf = el('div', 'final-shelf');
+  shelf.append(el('div', 'label wood', '📚 ' + esc(TEXTS.shelfTitle)));
+  const cards = el('div', 'mini-cards');
+  ROUNDS.forEach((R, i) => {
+    const c = el('div', 'mini', `<h4>${i + 1} · ${esc(R.en)}</h4>` + R.remember.map(p => `<p>${esc(p)}</p>`).join(''));
+    c.onclick = () => zoomCard(i);
+    cards.append(c);
+  });
+  shelf.append(cards, el('div', 'shelf-big wood'));
+  shelf.querySelector('.shelf-big').style.width = '100%';
+  v.append(shelf);
+  v.append(button(TEXTS.again, 'green final-btn', restart));
+  v._after = () => play(async chk => {
+    await chk(wait(300));
+    const b = box(cr);
+    sparkle(b.cx, b.cy, 26);
+    await chk(wait(700));
+    sparkle(b.cx, b.cy, 20);
+  });
+  return v;
+}
+// Збільшити картку на «Полиці знань»
+function zoomCard(i) {
+  const z = $('#zoom'), R = ROUNDS[i];
+  z.innerHTML = '';
+  z.append(el('div', 'rcard pop', `<p style="font-family:var(--pixel);color:#6a3d00">Раунд ${i + 1} · ${esc(R.title)}</p>` + R.remember.map(p => `<p>${esc(p)}</p>`).join('')));
+  z.classList.add('show');
+}
+$('#zoom').onclick = () => $('#zoom').classList.remove('show');
+
+const VIEWS = { start: startView, map: mapView, round: roundView, remember: rememberView, final: finalView };
+
+/* =========================================================================
+   МАЛЮВАННЯ ЕКРАНА, ПАНЕЛЬ ВЧИТЕЛЯ, XP
+   ========================================================================= */
+function render() {
+  interrupt();
+  $('#zoom').classList.remove('show');
+  const key = S.screen + '|' + S.r + '|' + S.t;
+  const fresh = key !== lastKey; lastKey = key;
+  screenEl.innerHTML = '';
+  const v = VIEWS[S.screen]();
+  if (fresh) v.classList.add('enter');
+  screenEl.append(v);
+  updatePanel();
+  updateXP();
+  if (v._after) v._after();
+}
+function currentHint() {
+  if (S.screen !== 'round') return '';
+  const R = ROUNDS[S.r];
+  return MODS[R.key].hint(R, S.t) || '';
+}
+function updatePanel() {
+  const a = $('#b-ans'), h = $('#b-hint');
+  if (!a) return;
+  a.disabled = S.revealed;
+  h.disabled = S.revealed || !currentHint();
+  h.classList.toggle('on', S.hint);
+}
+function updateXP() {
+  $('#xp').style.display = S.screen === 'start' ? 'none' : '';
+  const lvl = S.done.filter(Boolean).length;
+  let sum = lvl;
+  if (S.screen === 'round' && !S.done[S.r]) {
+    const n = ROUNDS[S.r].tasks.length;
+    sum += (S.t + (S.revealed ? 1 : 0)) / (n + 1);
+  }
+  $('#xp .fill').style.width = (sum / ROUNDS.length * 100) + '%';
+  $('#xp .lvl').textContent = lvl;
+}
+function showToast(i) {
+  const t = el('div', 'toast');
+  t.append(pix(SPR.flame, FIRES[i], 4));
+  t.append(el('div', '', `<div class="tt">${esc(TEXTS.achievement)}</div><div class="ts">${esc(ROUNDS[i].achievement)}</div>`));
+  $('#toasts').innerHTML = '';
+  $('#toasts').append(t);
+  t.addEventListener('animationend', () => t.remove());
+}
+
+/* =========================================================================
+   ДІЇ ВЧИТЕЛЯ
+   ========================================================================= */
+function resetTask() { S.revealed = false; S.hint = false; S.run5 = false; }
+function go2map() { S.screen = 'map'; render(); }
+function openRound(i) { S.screen = 'round'; S.r = i; S.t = 0; resetTask(); render(); }
+function toMap() { S.screen = 'map'; render(); }
+function goFinal() { S.screen = 'final'; render(); }
+function restart() {
+  Object.assign(S, { screen: 'start', r: 0, t: 0, done: S.done.map(() => false), justLit: -1 });
+  resetTask(); render();
+}
+function toRemember() {
+  S.screen = 'remember';
+  const fresh = !S.done[S.r];
+  if (fresh) { S.done[S.r] = true; S.justLit = S.r; }
+  render();
+  if (fresh) showToast(S.r);
+}
+function next() {
+  switch (S.screen) {
+    case 'start': return go2map();
+    case 'map': {
+      const i = S.done.indexOf(false);
+      return i >= 0 ? openRound(i) : goFinal();
+    }
+    case 'remember': return toMap();
+    case 'round': {
+      const R = ROUNDS[S.r];
+      if (S.t < R.tasks.length - 1) { S.t++; resetTask(); render(); }
+      else toRemember();
+    }
+  }
+}
+function back() {
+  if (S.screen === 'round') {
+    if (S.run5 && !S.revealed) S.run5 = false;                // відкотити «Виконати до кінця»
+    else if (S.revealed) S.revealed = false;                  // сховати відповідь, повернути стан
+    else if (S.t > 0) { S.t--; S.revealed = true; S.run5 = false; }  // попереднє завдання
+    else { S.screen = 'map'; }
+    S.hint = false;
+    render();
+  } else if (S.screen === 'remember') {
+    S.screen = 'round'; S.t = ROUNDS[S.r].tasks.length - 1; S.revealed = true; S.hint = false; S.run5 = false;
+    render();
+  } else if (S.screen === 'final') { toMap(); }
+  else if (S.screen === 'map') { S.screen = 'start'; render(); }
+}
+function toggleHint() {
+  if (S.screen !== 'round' || S.revealed || !currentHint()) return;
+  S.hint = !S.hint;
+  $('.hint').classList.toggle('show', S.hint);
+  updatePanel();
+}
+function reveal() {
+  if (S.screen !== 'round' || S.revealed || busy) return;
+  const R = ROUNDS[S.r];
+  S.revealed = true; S.hint = false;
+  $('.hint').classList.remove('show');
+  updatePanel(); updateXP();
+  play(chk => MODS[R.key].reveal(R, chk));
+}
+function toggleFullscreen() {
+  try {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen();
+  } catch (e) {}
+}
+
+/* Гарячі клавіші (event.code — працює за будь-якої розкладки) */
+document.addEventListener('keydown', e => {
+  if (e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
+  switch (e.code) {
+    case 'Space':
+      e.preventDefault();
+      if ($('#zoom').classList.contains('show')) { $('#zoom').classList.remove('show'); return; }
+      if (S.screen === 'round') { if (!S.revealed) reveal(); else if (!busy) next(); }
+      else next();
+      break;
+    case 'KeyH': toggleHint(); break;
+    case 'ArrowRight': e.preventDefault(); next(); break;
+    case 'ArrowLeft': e.preventDefault(); back(); break;
+    case 'Escape': $('#zoom').classList.remove('show'); break;
+  }
+});
+
+render();
+</script>
+</body>
+</html>
